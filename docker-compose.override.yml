@@ -3,17 +3,14 @@ services:
 
   api-server:
     networks:
-     - default
      - ndsnet
 
   scheduler:
     networks:
-     - default
      - ndsnet
 
   triggerer:
     networks:
-     - default
      - ndsnet
 
   minio:
