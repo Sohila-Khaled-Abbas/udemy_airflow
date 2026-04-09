@@ -6,11 +6,7 @@ This folder contains architectural and design documentation for the **Stock Pric
 
 ## 📊 Diagrams
 
-<div align="center">
-  <img src="./pipeline_architecture.svg" alt="Pipeline Architecture">
-</div>
-
-<br>
+![Pipeline Architecture](./pipeline_architecture.svg)
 
 | File | Description |
 |------|-------------|
