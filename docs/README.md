@@ -6,9 +6,16 @@ This folder contains architectural and design documentation for the **Stock Pric
 
 ## 📊 Diagrams
 
+<div align="center">
+  <img src="./pipeline_architecture.svg" alt="Pipeline Architecture">
+</div>
+
+<br>
+
 | File | Description |
 |------|-------------|
-| [`pipeline_architecture.drawio`](./pipeline_architecture.drawio) | Full pipeline architecture — open with [draw.io](https://app.diagrams.net/) or VS Code draw.io extension |
+| [`pipeline_architecture.svg`](./pipeline_architecture.svg) | Modernized high-resolution vector architecture |
+| [`pipeline_architecture.drawio`](./pipeline_architecture.drawio) | Editable source — open with [draw.io](https://app.diagrams.net/) or VS Code draw.io extension |
 
 ---
 
