@@ -1,17 +1,20 @@
 version: "3.1"
 services:
 
-  webserver:
+  api-server:
     networks:
-      - ndsnet
+     - default
+     - ndsnet
 
   scheduler:
     networks:
-      - ndsnet
+     - default
+     - ndsnet
 
   triggerer:
     networks:
-      - ndsnet
+     - default
+     - ndsnet
 
   minio:
     image: minio/minio:RELEASE.2024-06-13T22-53-53Z
