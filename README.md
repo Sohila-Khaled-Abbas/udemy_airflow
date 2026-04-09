@@ -18,16 +18,27 @@
 
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-- [Services & Ports](#-services--ports)
-- [DAG Tasks](#-dag-tasks)
-- [Configuration](#-configuration)
-- [Documentation](#-documentation)
-- [License](#-license)
+- [📈 Stock Prices Data Pipeline](#-stock-prices-data-pipeline)
+  - [📋 Table of Contents](#-table-of-contents)
+  - [🔍 Overview](#-overview)
+  - [🏗️ Architecture](#️-architecture)
+    - [Pipeline Layers](#pipeline-layers)
+  - [🛠️ Tech Stack](#️-tech-stack)
+  - [📁 Project Structure](#-project-structure)
+  - [🚀 Getting Started](#-getting-started)
+    - [Prerequisites](#prerequisites)
+    - [1. Clone the repository](#1-clone-the-repository)
+    - [2. Configure environment variables](#2-configure-environment-variables)
+    - [3. Start the full stack](#3-start-the-full-stack)
+    - [4. Configure Airflow connections](#4-configure-airflow-connections)
+    - [5. Trigger the DAG](#5-trigger-the-dag)
+  - [🌐 Services \& Ports](#-services--ports)
+  - [⚙️ DAG Tasks](#️-dag-tasks)
+  - [🔧 Configuration](#-configuration)
+    - [`airflow_settings.yaml`](#airflow_settingsyaml)
+    - [`docker-compose.override.yml`](#docker-composeoverrideyml)
+  - [📚 Documentation](#-documentation)
+  - [📄 License](#-license)
 
 ---
 
@@ -134,7 +145,7 @@ udemy_airflow/
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone github.com/Sohila-Khaled-Abbas/udemy_airflow
 cd udemy_airflow
 ```
 
