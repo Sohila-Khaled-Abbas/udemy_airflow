@@ -1,66 +1,82 @@
 # 📁 Project Documentation
 
-This folder contains architectural and design documentation for the **Stock Prices Data Pipeline** built with Apache Airflow.
+This folder contains the architectural diagrams and design documentation for the **Stock Prices Data Pipeline** built with Apache Airflow.
 
 ---
 
-## 📊 Diagrams
+## 📊 Architecture Diagram
 
 ![Pipeline Architecture](./pipeline_architecture.svg)
 
 | File | Description |
 |------|-------------|
-| [`pipeline_architecture.svg`](./pipeline_architecture.svg) | Modernized high-resolution vector architecture |
-| [`pipeline_architecture.drawio`](./pipeline_architecture.drawio) | Editable source — open with [draw.io](https://app.diagrams.net/) or VS Code draw.io extension |
+| [`pipeline_architecture.svg`](./pipeline_architecture.svg) | Modernized, self-contained vector diagram (renders anywhere — no internet needed) |
+| [`pipeline_architecture.drawio`](./pipeline_architecture.drawio) | Editable source — open with [draw.io](https://app.diagrams.net/) or the VS Code Draw.io extension |
 
 ---
 
 ## 🏗️ Pipeline Architecture Overview
 
 ```
-Yahoo Finance API ──► is_api_available ──► fetch_stock_prices ──► store_prices ──► format_prices ──► get_formatted_csv ──► load_to_dw ──► Slack
-                                                                        │                  │                   │                   │
-                                                                      Minio             Spark               Minio            Postgres
-                                                                   (Raw Data)       (Transform)          (Formatted)       (DW / BI)
-                                                                                                                               │
-                                                                                                                           Metabase
+Yahoo Finance API
+      │
+      ▼
+is_api_available ──► fetch_stock_prices ──► store_prices ──► format_prices ──► get_formatted_csv ──► load_to_dw ──► Slack
+                                                 │                  │                   │                   │
+                                              MinIO              Spark               MinIO            PostgreSQL
+                                           (Raw Data)         (Transform)         (Formatted)        (DW / BI)
+                                                                                                          │
+                                                                                                       Metabase
 ```
 
-### Layers
+### Layer Breakdown
 
 | Layer | Tasks / Services | Description |
 |-------|-----------------|-------------|
-| **Ingestion** | `is_api_available`, `fetch_stock_prices` | Sensor + fetch from Yahoo Finance API |
-| **Storage (Raw)** | `store_prices` → Minio | Store raw stock prices in object storage |
-| **Processing** | `format_prices` → Apache Spark | Transform and format raw data |
-| **Storage (Formatted)** | `get_formatted_csv` → Minio | Store cleaned CSV for downstream use |
-| **Data Warehouse** | `load_to_dw` → PostgreSQL | Load formatted data into the data warehouse |
-| **Visualization** | Metabase ← PostgreSQL | Business intelligence dashboards |
-| **Notification** | `load_to_dw` → Slack | Alert on pipeline completion or failure |
+| **Ingestion** | `is_api_available`, `fetch_stock_prices` | HTTP sensor + Yahoo Finance API fetch |
+| **Raw Storage** | `store_prices` → MinIO | Upload raw stock prices to object storage |
+| **Processing** | `format_prices` → Apache Spark | Distributed transformation and cleaning |
+| **Formatted Storage** | `get_formatted_csv` → MinIO | Store cleaned CSV for downstream use |
+| **Data Warehouse** | `load_to_dw` → PostgreSQL | Bulk load formatted data |
+| **Visualization** | Metabase ← PostgreSQL | BI dashboards and analytics |
+| **Notification** | `load_to_dw` → Slack | Alert on pipeline success or failure |
 
 ---
 
 ## 🛠️ How to Open the Diagram
 
-### Option 1 – draw.io Web App
+### Option A — draw.io Web App
+
 1. Go to [https://app.diagrams.net/](https://app.diagrams.net/)
 2. Click **File → Open from → Device**
 3. Select `pipeline_architecture.drawio`
 
-### Option 2 – VS Code Extension
+### Option B — VS Code Extension
+
 1. Install the [Draw.io Integration](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) extension
-2. Open `pipeline_architecture.drawio` directly in VS Code
+2. Open `pipeline_architecture.drawio` directly in VS Code — it renders inline
+
+### Option C — SVG Preview
+
+The `pipeline_architecture.svg` renders natively in:
+- VS Code Markdown Preview (open `README.md` → `Ctrl+Shift+V`)
+- GitHub repository view (just navigate to this folder)
+- Any modern web browser
 
 ---
 
-## 📌 Technologies Used
+## 📌 Technologies Referenced
 
-| Technology | Role |
-|------------|------|
-| Apache Airflow | Pipeline orchestration |
-| Yahoo Finance API | Data source |
-| Minio | Object storage (raw + formatted) |
-| Apache Spark | Distributed data processing |
-| PostgreSQL | Data warehouse |
-| Metabase | Business intelligence / visualization |
-| Slack | Pipeline notifications |
+| Technology | Role | Docs |
+|------------|------|------|
+| Apache Airflow | Pipeline orchestration | [airflow.apache.org](https://airflow.apache.org/) |
+| Yahoo Finance API | Market data source | [finance.yahoo.com](https://finance.yahoo.com/) |
+| MinIO | Object storage | [min.io](https://min.io/) |
+| Apache Spark | Distributed processing | [spark.apache.org](https://spark.apache.org/) |
+| PostgreSQL | Data warehouse | [postgresql.org](https://www.postgresql.org/) |
+| Metabase | BI / visualization | [metabase.com](https://www.metabase.com/) |
+| Slack | Notifications | [slack.com](https://slack.com/) |
+
+---
+
+> Back to [project root README](../README.md)
