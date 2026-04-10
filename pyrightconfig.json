@@ -4,5 +4,6 @@
   "reportMissingImports": "none",
   "reportMissingModuleSource": "none",
   "venvPath": ".",
+  "venv": ".venv",
   "stubPath": "typestubs"
 }
