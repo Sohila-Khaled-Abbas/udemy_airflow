@@ -102,12 +102,17 @@ is_api_available ──► get_stock_prices   ──► store_prices ──► f
 ```
 udemy_airflow/
 ├── dags/                          # Airflow DAG definitions
+│   ├── stock_market.py            # Main pipeline DAG
+│   ├── taskflow.py                # TaskFlow API example
+│   ├── random_number_checker.py   # Another TaskFlow example
 │   └── .airflowignore
 ├── docs/                          # Project documentation & diagrams
 │   ├── pipeline_architecture.svg  # Visual pipeline diagram (SVG)
 │   ├── pipeline_architecture.drawio # Editable diagram source
 │   └── README.md                  # Documentation index
 ├── include/                       # Shared project assets
+│   ├── stock_market/              
+│   │   └── tasks.py               # Extracted Python task logic
 │   ├── helpers/
 │   │   └── minio.py               # MinIO client helper
 │   └── data/                      # Local volume mounts
