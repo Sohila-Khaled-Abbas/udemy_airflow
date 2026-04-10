@@ -1,6 +1,4 @@
 from airflow.hooks.base import BaseHook
-from minio import Minio
-from io import BytesIO
 import json
 
 def _get_stock_prices(url, symbol):
@@ -12,6 +10,9 @@ def _get_stock_prices(url, symbol):
     return json.dumps(response.json()['chart']['result'][0])
 
 def _store_prices(stock):
+    from minio import Minio
+    from io import BytesIO
+
     minio = BaseHook.get_connection('minio')
     client = Minio(
         endpoint=minio.extra_dejson['endpoint'].split('//')[1],  # fix: spilt → split
