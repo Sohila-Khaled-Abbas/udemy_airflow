@@ -13,11 +13,22 @@ def _store_prices(stock):
     from minio import Minio
     from io import BytesIO
 
-    minio = BaseHook.get_connection('minio')
+    try:
+        minio_conn = BaseHook.get_connection('minio')
+        # Get endpoint and replace localhost with minio to work inside Docker network
+        endpoint_url = minio_conn.extra_dejson.get('endpoint_url', minio_conn.extra_dejson.get('endpoint', 'http://minio:9000'))
+        endpoint = endpoint_url.split('//')[1].replace('localhost', 'minio')
+        login = minio_conn.login
+        password = minio_conn.password
+    except Exception:
+        endpoint = 'minio:9000'
+        login = 'minio'
+        password = 'minio123'
+        
     client = Minio(
-        endpoint=minio.extra_dejson['endpoint'].split('//')[1],  # fix: spilt → split
-        access_key=minio.login,
-        secret_key=minio.password,
+        endpoint=endpoint,
+        access_key=login,
+        secret_key=password,
         secure=False
     )
     bucket_name = 'stock-market'
