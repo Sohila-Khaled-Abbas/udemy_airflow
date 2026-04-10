@@ -1,10 +1,14 @@
 services:
 
   api-server:
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     networks:
      - ndsnet
 
   scheduler:
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     networks:
      - ndsnet
 
