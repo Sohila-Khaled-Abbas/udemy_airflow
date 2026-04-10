@@ -46,7 +46,7 @@
 
 This project implements a fully automated **real-time stock price ingestion and analytics pipeline**. It fetches market data from the **Yahoo Finance API**, processes it through **Apache Spark**, stores intermediate and final results in **MinIO** object storage, loads the cleaned data into **PostgreSQL** as a data warehouse, and visualizes insights with **Metabase**. Pipeline completion events are sent as **Slack notifications**.
 
-The entire pipeline is orchestrated by **Apache Airflow**, running inside a multi-container **Docker** environment managed via Astronomer's Astro CLI.
+The entire pipeline is orchestrated by **Apache Airflow** using the modern **TaskFlow API** (`@dag`, `@task`), running inside a multi-container **Docker** environment managed via Astronomer's Astro CLI.
 
 ---
 
@@ -60,7 +60,7 @@ The entire pipeline is orchestrated by **Apache Airflow**, running inside a mult
 Yahoo Finance API
       │
       ▼
-is_api_available ──► fetch_stock_prices ──► store_prices ──► format_prices ──► get_formatted_csv ──► load_to_dw ──► Slack
+is_api_available ──► get_stock_prices   ──► store_prices ──► format_prices ──► get_formatted_csv ──► load_to_dw ──► Slack
                                                  │                  │                   │                   │
                                               MinIO              Spark               MinIO            PostgreSQL
                                            (Raw Data)         (Transform)         (Formatted)        (DW / BI)
@@ -72,7 +72,7 @@ is_api_available ──► fetch_stock_prices ──► store_prices ──► f
 
 | Layer | Tasks / Services | Description |
 |-------|-----------------|-------------|
-| **Ingestion** | `is_api_available`, `fetch_stock_prices` | HTTP sensor + Yahoo Finance API fetch |
+| **Ingestion** | `is_api_available`, `get_stock_prices` | HTTP sensor + Yahoo Finance API fetch |
 | **Raw Storage** | `store_prices` → MinIO | Store raw JSON/CSV in object storage |
 | **Processing** | `format_prices` → Apache Spark | Distributed transformation and formatting |
 | **Formatted Storage** | `get_formatted_csv` → MinIO | Store cleaned CSV for downstream use |
@@ -191,7 +191,9 @@ Go to **Airflow UI → Admin → Connections** and add:
 
 | Conn ID | Type | Details |
 |---------|------|---------|
-| `minio` | Amazon S3 | Endpoint: `http://minio:9000`, Key/Secret from `.env` |
+| `aws_default` | Amazon S3 | Endpoint: `http://minio:9000`, Key/Secret from `.env` |
+| `minio` | Generic | Endpoint: `http://minio:9000`, Login: `minio`, Pass: `minio123` |
+| `stock_api` | HTTP | Host: `https://query1.finance.yahoo.com` |
 | `spark_default` | Spark | Master: `spark://spark-master:7077` |
 | `slack` | HTTP | Webhook URL from `.env` |
 | `postgres_default` | Postgres | Host: `postgres`, DB: `postgres` |
@@ -217,11 +219,11 @@ Navigate to [http://localhost:8080](http://localhost:8080) → enable and trigge
 
 ## ⚙️ DAG Tasks
 
-| Task ID | Operator | Description |
-|---------|----------|-------------|
-| `is_api_available` | `HttpSensor` | Checks Yahoo Finance API availability |
-| `fetch_stock_prices` | `SimpleHttpOperator` | Fetches current stock prices via HTTP |
-| `store_prices` | `PythonOperator` | Uploads raw data to MinIO |
+| Task ID | Operator / API | Description |
+|---------|----------------|-------------|
+| `is_api_available` | `@task.sensor` | Checks Yahoo Finance API availability |
+| `get_stock_prices` | `@task` (Python) | Fetches current stock prices using requests |
+| `store_prices` | `@task` (Python) | Uploads raw data to MinIO with dynamic fallback |
 | `format_prices` | `SparkSubmitOperator` | Runs Spark job to clean and format data |
 | `get_formatted_csv` | `PythonOperator` | Downloads formatted CSV from MinIO |
 | `load_to_dw` | `PythonOperator` | Inserts data into PostgreSQL |
