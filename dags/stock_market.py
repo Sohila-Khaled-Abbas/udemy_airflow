@@ -3,13 +3,12 @@ from airflow.sensors.base import PokeReturnValue
 from airflow.hooks.base import BaseHook
 from datetime import datetime
 
-@dag (
-    start_date=datetime(2023, 1, 1), 
-    schedule="@daily", 
+@dag(
+    start_date=datetime(2023, 1, 1),
+    schedule="@daily",
     catchup=False,
-    tags = ['stock_market']
+    tags=['stock_market']
 )
-
 def stock_market():
     
     @task.sensor(poke_interval=30, timeout=300, mode='poke')
