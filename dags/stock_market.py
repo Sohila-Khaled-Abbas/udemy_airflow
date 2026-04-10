@@ -1,4 +1,4 @@
-from airflow.decorators import dag
+from airflow.decorators import dag, task
 from datetime import datetime
 
 @dag (
@@ -8,6 +8,9 @@ from datetime import datetime
     tags = ['stock_market']
 )
 def stock_market():
-    pass
+    
+    @task.sensor(poke_interval=30, timeout=600)
+    def check_market_open():
+        pass
 
 stock_market()
