@@ -6,11 +6,12 @@ This folder contains the architectural diagrams and design documentation for the
 
 ## 📊 Architecture Diagram
 
-![Pipeline Architecture](./pipeline_architecture.svg)
+![Pipeline Architecture](./pipeline_architecture.png)
 
 | File | Description |
 |------|-------------|
-| [`pipeline_architecture.svg`](./pipeline_architecture.svg) | Modernized, self-contained vector diagram (renders anywhere — no internet needed) |
+| [`pipeline_architecture.png`](./pipeline_architecture.png) | High-quality PNG (4380 × 1560 px, 300 DPI) — best for sharing and embedding |
+| [`pipeline_architecture.svg`](./pipeline_architecture.svg) | Scalable vector — renders anywhere without quality loss |
 | [`pipeline_architecture.drawio`](./pipeline_architecture.drawio) | Editable source — open with [draw.io](https://app.diagrams.net/) or the VS Code Draw.io extension |
 
 ---
