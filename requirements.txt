@@ -3,4 +3,3 @@ apache-airflow-providers-http
 apache-airflow-providers-amazon
 minio==7.2.14
 apache-airflow-providers-docker==4.0.0
-astro-run-dag # This package is needed for the astro run command. It will be removed before a deploy
