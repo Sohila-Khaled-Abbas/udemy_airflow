@@ -44,4 +44,32 @@ def _store_prices(stock):
         length=len(data),         # fix: len() of bytes
         content_type='application/json'
     )
-    return f'{objw.bucket_name}/{symbol}'   # fix: variable not string literal
+    return f'{objw.bucket_name}/{symbol}'   # fix: variable not string literal
+
+def _get_formatted_csv(path):
+    from minio import Minio
+
+    try:
+        minio_conn = BaseHook.get_connection('minio')
+        # Get endpoint and replace localhost with minio to work inside Docker network
+        endpoint_url = minio_conn.extra_dejson.get('endpoint_url', minio_conn.extra_dejson.get('endpoint', 'http://minio:9000'))
+        endpoint = endpoint_url.split('//')[1].replace('localhost', 'minio')
+        login = minio_conn.login
+        password = minio_conn.password
+    except Exception:
+        endpoint = 'minio:9000'
+        login = 'minio'
+        password = 'minio123'
+        
+    client = Minio(
+        endpoint=endpoint,
+        access_key=login,
+        secret_key=password,
+        secure=False
+    )
+    bucket_name = 'stock-market'
+    prefix_name = f"{path.split('/')[1]}/formatted_prices/"
+    objects = client.list_objects(bucket_name, prefix=prefix_name, recursive=True)
+    for obj in objects:
+        if obj.object_name.endswith('.csv'):
+            return f"{bucket_name}/{obj.object_name}"

@@ -4,7 +4,7 @@ from airflow.hooks.base import BaseHook
 from airflow.providers.docker.operators.docker import DockerOperator
 from datetime import datetime
 
-from include.stock_market.tasks import _get_stock_prices, _store_prices
+from include.stock_market.tasks import _get_stock_prices, _store_prices, _get_formatted_csv
 
 SYMBOL = 'AAPL'
 
@@ -50,10 +50,16 @@ def stock_market():
             'SPARK_APPLICATION_ARGS': '{{ task_instance.xcom_pull(task_ids="store_prices") }}'
         }
     )
+    
+    @task
+    def get_formatted_csv(path):
+        return _get_formatted_csv(path)
 
     url = is_api_available()
     stock = get_stock_prices(url, SYMBOL)
     stored = store_prices(stock)
-    stored >> format_prices
+    
+    formatted_csv = get_formatted_csv(stored)
+    stored >> format_prices >> formatted_csv
 
 stock_market()
