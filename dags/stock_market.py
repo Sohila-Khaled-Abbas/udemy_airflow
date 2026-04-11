@@ -2,6 +2,7 @@ from airflow.decorators import dag, task
 from airflow.sensors.base import PokeReturnValue
 from airflow.hooks.base import BaseHook
 from airflow.providers.docker.operators.docker import DockerOperator
+from airflow.providers.slack.notifications.slack_notifier import SlackNotifier
 from datetime import datetime
 
 from include.stock_market.tasks import _get_stock_prices, _store_prices, _get_formatted_csv
@@ -14,6 +15,16 @@ BUCKET_NAME = 'stock-market'
     schedule="@daily",
     catchup=False,
     tags=['stock_market']
+    on_success_callback=SlackNotifier(
+        slack_conn_id='slack',
+        channel='general',
+        message='Stock market DAG succeeded'
+    ),
+    on_failure_callback=SlackNotifier(
+        slack_conn_id='slack',
+        channel='general',
+        message='Stock market DAG failed'
+    )
 )
 def stock_market():
 
