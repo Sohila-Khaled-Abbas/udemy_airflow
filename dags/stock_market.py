@@ -17,13 +17,13 @@ BUCKET_NAME = 'stock-market'
     tags=['stock_market'],
     on_success_callback=SlackNotifier(
         slack_conn_id='slack',
-        channel='general',
-        message='Stock market DAG succeeded'
+        channel='#general',
+        text='The DAG stock_market succeeded'
     ),
     on_failure_callback=SlackNotifier(
         slack_conn_id='slack',
-        channel='general',
-        message='Stock market DAG failed'
+        channel='#general',
+        text='The DAG stock_market failed'
     )
 )
 def stock_market():
