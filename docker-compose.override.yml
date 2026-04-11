@@ -67,7 +67,7 @@ services:
     image: metabase/metabase:v0.52.8.4
     restart: always
     ports:
-      - 3000:3000
+      - 3060:3000
     volumes:
       - ./include/data/metabase:/metabase-data
     networks:

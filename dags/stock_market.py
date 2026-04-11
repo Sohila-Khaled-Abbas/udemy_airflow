@@ -1,6 +1,7 @@
 from airflow.decorators import dag, task
 from airflow.sensors.base import PokeReturnValue
 from airflow.hooks.base import BaseHook
+from airflow.providers.docker.operators.docker import DockerOperator
 from datetime import datetime
 
 from include.stock_market.tasks import _get_stock_prices, _store_prices
@@ -32,11 +33,27 @@ def stock_market():
 
     @task
     def store_prices(stock):
-        return _store_prices(stock)  # fix: was calling itself recursively
+        return _store_prices(stock)
+
+    format_prices = DockerOperator(
+        task_id='format_prices',
+        image='airflow/stock-app',
+        container_name='format_prices',
+        api_version='auto',
+        auto_remove='force',
+        docker_url='tcp://docker-proxy:2375',
+        network_mode='container:spark-master',
+        tty=True,
+        xcom_all=False,
+        mount_tmp_dir=False,
+        environment={
+            'SPARK_APPLICATION_ARGS': '{{ task_instance.xcom_pull(task_ids="store_prices") }}'
+        }
+    )
 
     url = is_api_available()
     stock = get_stock_prices(url, SYMBOL)
-    store_prices(stock)
-
+    stored = store_prices(stock)
+    stored >> format_prices
 
 stock_market()
