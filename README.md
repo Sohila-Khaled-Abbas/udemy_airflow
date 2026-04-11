@@ -37,6 +37,7 @@
   - [🔧 Configuration](#-configuration)
     - [`airflow_settings.yaml`](#airflow_settingsyaml)
     - [`docker-compose.override.yml`](#docker-composeoverrideyml)
+    - [`.env` — Native Connection Strings](#env--native-connection-strings)
   - [📚 Documentation](#-documentation)
   - [📄 License](#-license)
 
@@ -44,9 +45,11 @@
 
 ## 🔍 Overview
 
-This project implements a fully automated **real-time stock price ingestion and analytics pipeline**. It fetches market data from the **Yahoo Finance API**, processes it through **Apache Spark**, stores intermediate and final results in **MinIO** object storage, loads the cleaned data into **PostgreSQL** as a data warehouse, and visualizes insights with **Metabase**. Pipeline completion events are sent as **Slack notifications**.
+This project implements a fully automated **real-time stock price ingestion and analytics pipeline**. It fetches market data from the **Yahoo Finance API**, processes it through **Apache Spark** (via a custom Docker image), stores intermediate and final results in **MinIO** object storage, loads the cleaned data into **PostgreSQL** as a data warehouse, and visualizes insights with **Metabase**. Pipeline completion events are sent as **Slack notifications**.
 
 The entire pipeline is orchestrated by **Apache Airflow** using the modern **TaskFlow API** (`@dag`, `@task`), running inside a multi-container **Docker** environment managed via Astronomer's Astro CLI.
+
+> **New in this version:** The Spark transformation step now runs as a `DockerOperator` using the `airflow/stock-app` custom image. Data loading into PostgreSQL is implemented as a native `@task` using `pandas` + `PostgresHook`, replacing the deprecated Astro SDK approach for full Airflow 3 compatibility.
 
 ---
 
@@ -54,18 +57,18 @@ The entire pipeline is orchestrated by **Apache Airflow** using the modern **Tas
 
 ![Pipeline Architecture](./docs/pipeline_architecture.svg)
 
-> The pipeline flows from left to right: data is ingested from Yahoo Finance, processed through Airflow tasks, stored in MinIO, transformed with Spark, loaded into PostgreSQL, and visualized in Metabase. Slack notifications are sent on completion.
+> The pipeline flows from left to right: data is ingested from Yahoo Finance, processed through Airflow tasks, stored in MinIO, transformed with Spark (inside Docker), loaded into PostgreSQL, and visualized in Metabase. Slack notifications are sent on completion.
 
 ```
 Yahoo Finance API
       │
       ▼
-is_api_available ──► get_stock_prices   ──► store_prices ──► format_prices ──► get_formatted_csv ──► load_to_dw ──► Slack
-                                                 │                  │                   │                   │
-                                              MinIO              Spark               MinIO            PostgreSQL
-                                           (Raw Data)         (Transform)         (Formatted)        (DW / BI)
-                                                                                                          │
-                                                                                                       Metabase
+is_api_available ──► get_stock_prices ──► store_prices ──► format_prices (DockerOperator) ──► get_formatted_csv ──► load_to_dw ──► Slack
+                                               │                    │                               │                    │
+                                            MinIO               Spark DW                          MinIO            PostgreSQL
+                                          (Raw JSON)       (airflow/stock-app)               (Formatted CSV)    (stock_prices table)
+                                                                                                                        │
+                                                                                                                    Metabase
 ```
 
 ### Pipeline Layers
@@ -73,12 +76,12 @@ is_api_available ──► get_stock_prices   ──► store_prices ──► f
 | Layer | Tasks / Services | Description |
 |-------|-----------------|-------------|
 | **Ingestion** | `is_api_available`, `get_stock_prices` | HTTP sensor + Yahoo Finance API fetch |
-| **Raw Storage** | `store_prices` → MinIO | Store raw JSON/CSV in object storage |
-| **Processing** | `format_prices` → Apache Spark | Distributed transformation and formatting |
-| **Formatted Storage** | `get_formatted_csv` → MinIO | Store cleaned CSV for downstream use |
-| **Data Warehouse** | `load_to_dw` → PostgreSQL | Bulk load formatted data into the DW |
+| **Raw Storage** | `store_prices` → MinIO | Store raw JSON in `stock-market/AAPL/` bucket |
+| **Processing** | `format_prices` → DockerOperator | Spark job inside `airflow/stock-app` container |
+| **Formatted Storage** | `get_formatted_csv` → MinIO | Retrieve cleaned CSV path from `formatted_prices/` |
+| **Data Warehouse** | `load_to_dw` → PostgreSQL | Stream CSV from MinIO → `stock_prices` table via pandas |
 | **Visualization** | Metabase ← PostgreSQL | BI dashboards and analytics |
-| **Notification** | `load_to_dw` → Slack | Pipeline success / failure alerts |
+| **Notification** | Slack | Pipeline success / failure alerts |
 
 ---
 
@@ -86,11 +89,12 @@ is_api_available ──► get_stock_prices   ──► store_prices ──► f
 
 | Technology | Version | Role |
 |------------|---------|------|
-| [Apache Airflow](https://airflow.apache.org/) | Astro Runtime 3.1-13 | Pipeline orchestration |
+| [Apache Airflow](https://airflow.apache.org/) | Astro Runtime `3.1-13` | Pipeline orchestration (Airflow 3) |
 | [Yahoo Finance API](https://finance.yahoo.com/) | — | Market data source |
 | [MinIO](https://min.io/) | `2024-06-13` | Object storage (raw + formatted data) |
 | [Apache Spark](https://spark.apache.org/) | — | Distributed data processing |
-| [PostgreSQL](https://www.postgresql.org/) | — | Data warehouse |
+| [PostgreSQL](https://www.postgresql.org/) | — | Data warehouse (`stock_prices` table) |
+| [Pandas](https://pandas.pydata.org/) | — | CSV → PostgreSQL data loading |
 | [Metabase](https://www.metabase.com/) | `v0.52.8.4` | Business intelligence / visualization |
 | [Slack](https://slack.com/) | — | Pipeline notifications |
 | [Docker](https://www.docker.com/) | — | Containerized runtime environment |
@@ -102,23 +106,25 @@ is_api_available ──► get_stock_prices   ──► store_prices ──► f
 ```
 udemy_airflow/
 ├── dags/                          # Airflow DAG definitions
-│   ├── stock_market.py            # Main pipeline DAG
+│   ├── stock_market.py            # Main pipeline DAG (TaskFlow API)
 │   ├── taskflow.py                # TaskFlow API example
-│   ├── random_number_checker.py   # Another TaskFlow example
+│   ├── random_number_checker.py   # Sensor + branching example
+│   ├── test_load.py               # Debug script for load_to_dw (local dev)
 │   └── .airflowignore
 ├── docs/                          # Project documentation & diagrams
 │   ├── pipeline_architecture.svg  # Visual pipeline diagram (SVG)
 │   ├── pipeline_architecture.drawio # Editable diagram source
 │   └── README.md                  # Documentation index
 ├── include/                       # Shared project assets
-│   ├── stock_market/              
-│   │   └── tasks.py               # Extracted Python task logic
+│   ├── stock_market/
+│   │   └── tasks.py               # Helper functions: _get_stock_prices,
+│   │                              #   _store_prices, _get_formatted_csv
 │   ├── helpers/
 │   │   └── minio.py               # MinIO client helper
 │   └── data/                      # Local volume mounts
 │       ├── minio/                 # MinIO data (raw + formatted)
 │       └── metabase/              # Metabase persistent data
-├── spark/                         # Spark cluster config
+├── spark/                         # Spark cluster config & custom Docker image
 │   ├── master/
 │   │   ├── Dockerfile
 │   │   └── master.sh
@@ -126,14 +132,16 @@ udemy_airflow/
 │   │   ├── Dockerfile
 │   │   └── worker.sh
 │   └── notebooks/                 # Jupyter notebooks for exploration
+│       └── stock_transform/
+│           └── stock_transform.py # PySpark transformation logic
 ├── plugins/                       # Custom Airflow plugins
-├── tests/                         # DAG and unit tests
-├── Dockerfile                     # Astro Runtime image
-├── docker-compose.override.yml    # Extended services (MinIO, Spark, Metabase)
+├── tests/                         # DAG integrity and unit tests
+├── Dockerfile                     # Astro Runtime image definition
+├── docker-compose.override.yml    # Extended services (MinIO, Spark, Metabase, docker-proxy)
 ├── requirements.txt               # Python dependencies
 ├── packages.txt                   # OS-level dependencies
 ├── airflow_settings.yaml          # Local Airflow connections/variables
-├── .env                           # Environment variables (not committed)
+├── .env                           # Environment variables & native connection strings
 ├── .gitignore
 └── LICENSE
 ```
@@ -156,19 +164,17 @@ cd udemy_airflow
 
 ### 2. Configure environment variables
 
-Copy and fill in the required values:
-
-```bash
-cp .env.example .env   # edit with your credentials
-```
-
-Key variables to set:
+The `.env` file declares native Airflow connection strings so that **both the scheduler and CLI test commands** automatically pick up all connections without requiring manual UI setup:
 
 ```env
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-MINIO_ROOT_USER=minio
-MINIO_ROOT_PASSWORD=minio123
+# MinIO object storage connection
+AIRFLOW_CONN_MINIO=generic://minio:minio123@minio:9000/?endpoint_url=http%3A%2F%2Fminio%3A9000
+
+# PostgreSQL data warehouse connection
+AIRFLOW_CONN_POSTGRES=postgresql://postgres:postgres@postgres:5432/postgres
 ```
+
+> **Note:** The `AIRFLOW_CONN_*` prefix is Airflow's native environment-based connection injection. These are automatically available to all tasks including `astro dev run dags test` without needing the UI.
 
 ### 3. Start the full stack
 
@@ -180,32 +186,38 @@ This spins up all containers defined in the `Dockerfile` and `docker-compose.ove
 
 | Container | Description |
 |-----------|-------------|
-| `airflow-apiserver` | Airflow UI & REST API |
+| `airflow-apiserver` | Airflow UI & REST API (port `8080`) |
 | `airflow-scheduler` | DAG scheduling engine |
 | `airflow-triggerer` | Deferred task handler |
-| `postgres` | Airflow metadata DB |
-| `minio` | Object storage |
-| `spark-master` | Spark master node |
-| `spark-worker` | Spark worker node |
-| `metabase` | BI dashboard |
-| `docker-proxy` | Docker socket proxy |
+| `postgres` | Airflow metadata DB + DW (port `5432`) |
+| `minio` | Object storage (ports `9000`/`9001`) |
+| `spark-master` | Spark master node (port `7077`) |
+| `spark-worker` | Spark worker node (port `8081`) |
+| `metabase` | BI dashboard (port `3060`) |
+| `docker-proxy` | Docker socket proxy (port `2376`) |
+
+> **Port note:** Metabase is mapped to `3060` (not the default `3000`) to avoid conflicts with Windows Hyper-V.
 
 ### 4. Configure Airflow connections
 
-Go to **Airflow UI → Admin → Connections** and add:
+Most connections are injected automatically via `.env`. You only need to add the following manually in **Airflow UI → Admin → Connections**:
 
 | Conn ID | Type | Details |
 |---------|------|---------|
-| `aws_default` | Amazon S3 | Endpoint: `http://minio:9000`, Key/Secret from `.env` |
-| `minio` | Generic | Endpoint: `http://minio:9000`, Login: `minio`, Pass: `minio123` |
-| `stock_api` | HTTP | Host: `https://query1.finance.yahoo.com` |
-| `spark_default` | Spark | Master: `spark://spark-master:7077` |
-| `slack` | HTTP | Webhook URL from `.env` |
-| `postgres_default` | Postgres | Host: `postgres`, DB: `postgres` |
+| `stock_api` | HTTP | Host: `https://query1.finance.yahoo.com`, Extra: `{"endpoint": "/v8/finance/chart/", "headers": {"User-Agent": "..."}}` |
+| `slack` | HTTP | Webhook URL from your Slack app |
+
+The `minio` and `postgres` connections are auto-created from `.env` — no manual UI step required.
 
 ### 5. Trigger the DAG
 
-Navigate to [http://localhost:8080](http://localhost:8080) → enable and trigger your stock prices DAG.
+Navigate to [http://localhost:8080](http://localhost:8080) → enable and trigger the `stock_market` DAG.
+
+Or test from the CLI:
+
+```bash
+astro dev run dags test stock_market 2025-01-06
+```
 
 ---
 
@@ -217,7 +229,7 @@ Navigate to [http://localhost:8080](http://localhost:8080) → enable and trigge
 | MinIO Console | [http://localhost:9001](http://localhost:9001) | `minio` / `minio123` |
 | Spark Master UI | [http://localhost:8082](http://localhost:8082) | — |
 | Spark Worker UI | [http://localhost:8081](http://localhost:8081) | — |
-| Metabase | [http://localhost:3000](http://localhost:3000) | Set on first launch |
+| Metabase | [http://localhost:3060](http://localhost:3060) | Set on first launch |
 | PostgreSQL | `localhost:5432` | `postgres` / `postgres` |
 
 ---
@@ -226,13 +238,14 @@ Navigate to [http://localhost:8080](http://localhost:8080) → enable and trigge
 
 | Task ID | Operator / API | Description |
 |---------|----------------|-------------|
-| `is_api_available` | `@task.sensor` | Checks Yahoo Finance API availability |
-| `get_stock_prices` | `@task` (Python) | Fetches current stock prices using requests |
-| `store_prices` | `@task` (Python) | Uploads raw data to MinIO with dynamic fallback |
-| `format_prices` | `SparkSubmitOperator` | Runs Spark job to clean and format data |
-| `get_formatted_csv` | `PythonOperator` | Downloads formatted CSV from MinIO |
-| `load_to_dw` | `PythonOperator` | Inserts data into PostgreSQL |
-| `notify_slack` | `SlackWebhookOperator` | Sends pipeline summary to Slack |
+| `is_api_available` | `@task.sensor` | Pokes Yahoo Finance API until it returns a valid result |
+| `get_stock_prices` | `@task` (Python) | Fetches 1-year daily OHLCV data for `AAPL` |
+| `store_prices` | `@task` (Python) | Serializes and uploads raw JSON to MinIO bucket `stock-market/AAPL/` |
+| `format_prices` | `DockerOperator` | Runs `airflow/stock-app` image — submits PySpark job via `spark-master` |
+| `get_formatted_csv` | `@task` (Python) | Lists `formatted_prices/` in MinIO and returns the output CSV path |
+| `load_to_dw` | `@task` (Python) | Downloads CSV from MinIO → loads into PostgreSQL `stock_prices` table via `pandas` + `PostgresHook` |
+
+> **Implementation note:** `load_to_dw` uses a native Airflow `@task` with `pandas` and `PostgresHook` rather than the Astro SDK (`aql.load_file`). This ensures full compatibility with **Airflow 3** (Astro Runtime 3.1-13), which removed the `airflow.hooks.dbapi` module that `astro-sdk-python` depended on.
 
 ---
 
@@ -245,12 +258,32 @@ Used for **local development only**. Defines Airflow connections, variables, and
 ### `docker-compose.override.yml`
 
 Extends the default Astro `docker-compose.yml` to add:
-- **MinIO** — object storage on ports `9000`/`9001`
+- **MinIO** — object storage on ports `9000` (API) / `9001` (Console)
 - **Spark** master + worker on ports `7077`, `8081`, `8082`
-- **Metabase** BI tool on port `3000`
+- **Metabase** BI tool on port `3060` (remapped from default `3000` to avoid Windows Hyper-V conflicts)
 - **docker-proxy** — exposes Docker socket safely on port `2376`
 
 All services share the `ndsnet` bridge network.
+
+### `.env` — Native Connection Strings
+
+Airflow 3 supports injecting connections via environment variables using the `AIRFLOW_CONN_<CONN_ID>` pattern. This is particularly important for `astro dev run dags test`, which runs in an isolated CLI container that **cannot access connections created via the Airflow UI**.
+
+```env
+AIRFLOW_CONN_MINIO=generic://minio:minio123@minio:9000/?endpoint_url=http%3A%2F%2Fminio%3A9000
+AIRFLOW_CONN_POSTGRES=postgresql://postgres:postgres@postgres:5432/postgres
+```
+
+### `requirements.txt`
+
+| Package | Purpose |
+|---------|---------|
+| `apache-airflow-providers-http` | Yahoo Finance HTTP sensor |
+| `apache-airflow-providers-amazon` | S3/MinIO compat layer |
+| `minio==7.2.14` | MinIO Python SDK |
+| `apache-airflow-providers-docker==4.0.0` | `DockerOperator` for Spark |
+| `apache-airflow-providers-postgres` | `PostgresHook` for data loading |
+| `astro-sdk-python` | (installed but unused; native `@task` preferred for Airflow 3 compat) |
 
 ---
 
@@ -273,5 +306,5 @@ This project is licensed under the **MIT License** — see [`LICENSE`](./LICENSE
 ---
 
 <div align="center">
-  <sub>Built with ❤️ using Apache Airflow, Spark, MinIO, PostgreSQL & Metabase</sub>
+  <sub>Built with ❤️ using Apache Airflow, Spark, MinIO, PostgreSQL &amp; Metabase</sub>
 </div>
