@@ -39,6 +39,7 @@
     - [`docker-compose.override.yml`](#docker-composeoverrideyml)
     - [`.env` — Native Connection Strings](#env--native-connection-strings)
   - [📚 Documentation](#-documentation)
+  - [📊 Stock Dashboard](#-stock-dashboard)
   - [📄 License](#-license)
 
 ---
@@ -296,6 +297,33 @@ Full architectural documentation is in the [`docs/`](./docs/README.md) folder:
 | [`docs/README.md`](./docs/README.md) | Documentation index and diagram guide |
 | [`docs/pipeline_architecture.svg`](./docs/pipeline_architecture.svg) | Modernized SVG pipeline diagram |
 | [`docs/pipeline_architecture.drawio`](./docs/pipeline_architecture.drawio) | Editable draw.io source |
+| [`docs/Stock Dashboard.pdf`](./docs/Stock%20Dashboard.pdf) | Metabase dashboard export (PDF) |
+
+---
+
+## 📊 Stock Dashboard
+
+<div align="center">
+
+[![Download Dashboard PDF](https://img.shields.io/badge/📄%20Download-Stock%20Dashboard%20PDF-C72E49?style=for-the-badge)](./docs/Stock%20Dashboard.pdf)
+
+</div>
+
+The **Stock Dashboard** was created in [Metabase](http://localhost:3060) connected to the PostgreSQL `stock_prices` table populated by the pipeline. It provides an at-a-glance view of historical AAPL stock data after Spark transformation.
+
+![DAG Graph — full pipeline](./docs/stock_market-graph.png)
+*↑ Airflow DAG showing the complete pipeline execution — from API sensor through to `load_to_dw`*
+
+> **📄 View the full Metabase dashboard export:** [`docs/Stock Dashboard.pdf`](./docs/Stock%20Dashboard.pdf)
+
+The Metabase dashboard connects directly to the `public.stock_prices` table in PostgreSQL, which is populated by the `load_to_dw` task on every DAG run. To rebuild the dashboard in your local Metabase instance:
+
+1. Navigate to [http://localhost:3060](http://localhost:3060) and complete the initial setup
+2. Add a **PostgreSQL** data source:
+   - Host: `postgres`, Port: `5432`
+   - Database: `postgres`, User: `postgres`, Password: `postgres`
+3. Browse to the `public` schema → `stock_prices` table
+4. Build questions and dashboards from the loaded AAPL data
 
 ---
 
