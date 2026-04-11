@@ -284,6 +284,7 @@ AIRFLOW_CONN_POSTGRES=postgresql://postgres:postgres@postgres:5432/postgres
 | `minio==7.2.14` | MinIO Python SDK |
 | `apache-airflow-providers-docker==4.0.0` | `DockerOperator` for Spark |
 | `apache-airflow-providers-postgres` | `PostgresHook` for data loading |
+| `apache-airflow-providers-slack==9.9.0` | `SlackWebhookOperator` for pipeline notifications |
 | `astro-sdk-python` | (installed but unused; native `@task` preferred for Airflow 3 compat) |
 
 ---
