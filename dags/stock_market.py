@@ -2,14 +2,12 @@ from airflow.decorators import dag, task
 from airflow.sensors.base import PokeReturnValue
 from airflow.hooks.base import BaseHook
 from airflow.providers.docker.operators.docker import DockerOperator
-from astro import sql as aql
-from astro.files import File
-from astro.sql.table import Table, Metadata
 from datetime import datetime
 
 from include.stock_market.tasks import _get_stock_prices, _store_prices, _get_formatted_csv
 
 SYMBOL = 'AAPL'
+BUCKET_NAME = 'stock-market'
 
 @dag(
     start_date=datetime(2023, 1, 1),
@@ -64,27 +62,52 @@ def stock_market():
     
     formatted_csv = get_formatted_csv(stored)
     
-    load_to_dw = aql.load_file_to_table(
-        task_id='load_to_dw',
-        input_file=File(
-            path=f"s3://{BUCKET_NAME}/{{{{ti.xcom_pull(task_ids='get_formatted_csv')}}}}",
-            conn_id='minio'
-        ),
-        output_table=Table(
-            name='stock_prices', 
-            conn_id='postgres',
-            metadata=Metadata(
-                schema='public'
-            )
-    ),
-        load_options={
-            'aws_access_key_id': BaseHook.get_connection('minio').login,
-            'aws_secret_access_key': BaseHook.get_connection('minio').password,
-            'endpoint_url': 'http://localhost:9000'
-        }
-    )
+    @task
+    def load_to_dw(stock_market_csv_path: str):
+        import io
+        import pandas as pd
+        from minio import Minio
+        from airflow.hooks.base import BaseHook
+        from airflow.providers.postgres.hooks.postgres import PostgresHook
+        
+        try:
+            minio_conn = BaseHook.get_connection('minio')
+            endpoint_url = minio_conn.extra_dejson.get('endpoint_url', minio_conn.extra_dejson.get('endpoint', 'http://minio:9000'))
+            endpoint = endpoint_url.split('//')[1].replace('localhost', 'minio')
+            login = minio_conn.login
+            password = minio_conn.password
+        except Exception:
+            endpoint = 'minio:9000'
+            login = 'minio'
+            password = 'minio123'
+            
+        client = Minio(
+            endpoint=endpoint,
+            access_key=login,
+            secret_key=password,
+            secure=False
+        )
+        
+        parts = stock_market_csv_path.split('/', 1)
+        bucket_name = parts[0]
+        object_name = parts[1]
+        
+        response = client.get_object(bucket_name, object_name)
+        df = pd.read_csv(io.BytesIO(response.data))
+        
+        # Determine the postgres connection
+        try:
+            hook = PostgresHook(postgres_conn_id='postgres')
+            hook.get_connection('postgres')
+        except Exception:
+            hook = PostgresHook(postgres_conn_id='my_postgres')
+            
+        engine = hook.get_sqlalchemy_engine()
+        df.to_sql('stock_prices', engine, schema='public', if_exists='replace', index=False)
+        
+    loaded = load_to_dw(formatted_csv)
     
-    stored >> format_prices >> formatted_csv >> load_to_dw
+    stored >> format_prices >> formatted_csv >> loaded
     
 
 stock_market()
