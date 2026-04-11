@@ -72,4 +72,5 @@ def _get_formatted_csv(path):
     objects = client.list_objects(bucket_name, prefix=prefix_name, recursive=True)
     for obj in objects:
         if obj.object_name.endswith('.csv'):
-            return f"{bucket_name}/{obj.object_name}"
+            return f"{bucket_name}/{obj.object_name}"
+    return AirflowNotFoundException("Formatted CSV not found")
