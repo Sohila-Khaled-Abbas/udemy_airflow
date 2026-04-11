@@ -2,7 +2,7 @@ from airflow.decorators import dag, task
 from airflow.sensors.base import PokeReturnValue
 from airflow.hooks.base import BaseHook
 from airflow.providers.docker.operators.docker import DockerOperator
-from airflow.providers.slack.notifications.slack_notifier import SlackNotifier
+from airflow.providers.slack.notifications.slack import SlackNotifier
 from datetime import datetime
 
 from include.stock_market.tasks import _get_stock_prices, _store_prices, _get_formatted_csv
